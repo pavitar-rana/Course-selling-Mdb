@@ -1,6 +1,8 @@
 const express = require("express");
-const mongoose = require("mongoose");
+
 const cors = require("cors");
+
+const Users = require("./routes/user");
 
 const PORT = 3000;
 const app = express();
@@ -13,140 +15,9 @@ mongoose
   .then(() => console.log("Connected to MongoDB!"))
   .catch((err) => console.log("Connection error", err));
 
-// Create a schema for the user
-
-const userSchema = new mongoose.Schema({
-  username: { type: String },
-  password: { type: String },
-  email: { type: String },
-  // Set the type to an array Products
-  purchasedCourse: [
-    {
-      cId: { type: String },
-      cName: { type: String },
-      description: { type: String },
-      price: { type: String },
-      completed: { type: Boolean, default: false },
-    },
-  ],
-});
-
-const adminSchema = new mongoose.Schema({
-  username: { type: String },
-  password: { type: String },
-  email: { type: String },
-});
-
-// Create a schema for the product
-
-const courseSchema = new mongoose.Schema({
-  cId: { type: String },
-  cName: { type: String },
-  description: { type: String },
-  price: { type: String },
-});
-
-// Create user and product models
-
-const User = mongoose.model("User", userSchema);
-const Course = mongoose.model("Course", courseSchema);
-const Admin = mongoose.model("Admin", adminSchema);
-
 // Routes
 
-// Route to create new user
-
-app.post("/user/signup", async (req, res) => {
-  const { username, password, email } = req.body;
-
-  // Checking if we got the username, password and email
-  if (!username || !password || !email) {
-    return res.send({ message: "Please provide all the required fields" });
-  }
-
-  // Checking if the user already exists
-
-  // Here $or means either username or email should be equal to the username or email that we are getting from the request
-  const existingUser = await User.findOne({
-    $or: [{ username }, { email }],
-  });
-
-  if (existingUser) {
-    return res.send({ message: "User already exists" });
-  }
-
-  // If the user does not exist, create a new user
-
-  try {
-    const user = new User({ username, password, email });
-    await user.save();
-    console.log("User created:", user);
-    res.send({
-      message: "User created successfully",
-      user: { username: user.username, email: user.email },
-    });
-  } catch (err) {
-    res.send({ message: "Error creating user" });
-  }
-});
-
-// Route to login user
-
-app.post("/user/login", async (req, res) => {
-  const { username, password } = req.body;
-
-  // Checking if we got the username and password
-
-  if (!username || !password) {
-    return res.send({ message: "Please provide username and password" });
-  }
-
-  // Checking if the user existss
-
-  try {
-    const user = await User.findOne({ username });
-
-    // If the user does not exist OR the password doesn;t match return an error message
-    if (!user || user.password !== password) {
-      return res.send({ message: "Login failed" });
-    }
-
-    console.log("User logged in:", user);
-    res.send({
-      message: "User logged in successfully",
-      user: { username: user.username, email: user.email },
-    });
-  } catch (err) {
-    res.send({ message: "Error logging in" });
-  }
-});
-
-// Route to update the user
-app.put("/user/update", async (req, res) => {
-  const { username, password, newUsername, newPassword, newEmail } = req.body;
-
-  // Checking if we got the required fields
-  if (!username || !password || !newUsername || !newPassword || !newEmail) {
-    return res.send({ message: "Provide all fields" });
-  }
-
-  try {
-    const user = await User.findOne({ username, password });
-
-    if (!user) {
-      return res.send({ message: "Login failed" });
-    }
-
-    user.username = newUsername;
-    user.password = newPassword;
-    user.email = newEmail;
-
-    await user.save();
-    res.json({ user });
-  } catch (err) {
-    res.send({ message: "Error updating user" });
-  }
-});
+app.use("/user", Users);
 
 // Route to create new admin
 
@@ -244,7 +115,7 @@ app.put("/admin/update", async (req, res) => {
 
 // Route to get all users
 
-app.get("/users", async (req, res) => {
+app.get("/admin/users", async (req, res) => {
   try {
     const users = await User.find();
     res.json({ users });
@@ -374,7 +245,7 @@ app.post("/courses/purchase", async (req, res) => {
 
     // Check if the course is already purchased if not add it
     const isPurchased = user.purchasedCourse.find(
-      (product) => product.cId === cId
+      (course) => course.cId === cId
     );
     if (isPurchased) {
       return res.send({ message: "Course already purchased" });
@@ -462,7 +333,7 @@ app.get("/courses/completed", async (req, res) => {
     }
 
     const completedCourses = user.purchasedCourse.filter(
-      (product) => product.completed
+      (course) => course.completed
     );
 
     res.json({ completedCourses });
